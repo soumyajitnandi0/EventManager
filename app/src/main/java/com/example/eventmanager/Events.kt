@@ -1,50 +1,78 @@
 package com.example.eventmanager
 
 import android.os.Bundle
-import androidx.fragment.app.Fragment
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
+import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.room.Room
 import com.example.eventmanager.databinding.FragmentEventsBinding
-import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-
+import kotlinx.coroutines.withContext
 
 class Events : Fragment() {
-
-
     private lateinit var database: EventDatabase
     private lateinit var binding: FragmentEventsBinding
-
+    private lateinit var eventAdapter: EventAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater, container: ViewGroup?,
         savedInstanceState: Bundle?
-    ): View? {
-        // Inflate the layout for this fragment
-        binding = FragmentEventsBinding.inflate(inflater,container,false)
-
-
-
-        database = Room.databaseBuilder(context,
-            EventDatabase::class.java,
-            "events_database").build()
-
-        GlobalScope.launch {
-            database.eventDAO().insertEvent(Event(0,"HOLI","23/05/2025","23:00","BLR"))
-        }
-
-        GlobalScope.launch {
-            database.eventDAO().deleteEvent(Event(1,"King","961553294"))
-        }
-
-        GlobalScope.launch {
-            database.eventDAO().updateEvent(Event(2,"Smith","9999999999"))
-        }
-
-
+    ): View {
+        binding = FragmentEventsBinding.inflate(inflater, container, false)
+        return binding.root
     }
 
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        super.onViewCreated(view, savedInstanceState)
 
+        // Initialize database
+        database = Room.databaseBuilder(
+            requireContext(),
+            EventDatabase::class.java,
+            "events_database"
+        ).build()
+
+        // Setup RecyclerView
+        eventAdapter = EventAdapter(emptyList())
+        binding.notesRecyclerView.apply {
+            layoutManager = LinearLayoutManager(context)
+            adapter = eventAdapter
+        }
+
+        // Setup Add Button
+        binding.addButton.setOnClickListener {
+            addSampleEvent()
+        }
+
+        // Observe events
+        observeEvents()
+    }
+
+    private fun observeEvents() {
+        database.eventDAO().getAllEvents().observe(viewLifecycleOwner) { events ->
+            eventAdapter.updateEvents(events)
+
+            // Show/hide empty view based on events
+            binding.emptyView.visibility = if (events.isEmpty()) View.VISIBLE else View.GONE
+        }
+    }
+
+    private fun addSampleEvent() {
+        lifecycleScope.launch {
+            withContext(Dispatchers.IO) {
+                val newEvent = Event(
+                    id = 0, // Room will auto-generate
+                    title = "New Event ${System.currentTimeMillis()}",
+                    date = "23/05/2025",
+                    time = "23:00",
+                    location = "BLR"
+                )
+                database.eventDAO().insertEvent(newEvent)
+            }
+        }
+    }
 }

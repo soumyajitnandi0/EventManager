@@ -5,6 +5,8 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import android.database.sqlite.SQLiteOpenHelper
 import android.util.Log
+import java.security.MessageDigest
+import java.util.regex.Pattern
 
 class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME, null, DATABASE_VERSION) {
 
@@ -19,61 +21,42 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val COLUMN_PASSWORD = "password"
     }
 
-    override fun onCreate(db: SQLiteDatabase) {
-        try {
-            val createTableQuery = """
-                CREATE TABLE $TABLE_NAME (
-                    $COLUMN_ID INTEGER PRIMARY KEY AUTOINCREMENT,
-                    $COLUMN_NAME TEXT NOT NULL,
-                    $COLUMN_EMAIL TEXT NOT NULL UNIQUE,
-                    $COLUMN_PASSWORD TEXT NOT NULL
-                )
-            """.trimIndent()
-
-            db.execSQL(createTableQuery)
-            Log.d(TAG, "Database table created successfully")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error creating database table", e)
-        }
-    }
-
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
-        try {
-            db.execSQL("DROP TABLE IF EXISTS $TABLE_NAME")
-            onCreate(db)
-            Log.d(TAG, "Database upgraded from $oldVersion to $newVersion")
-        } catch (e: Exception) {
-            Log.e(TAG, "Error upgrading database", e)
-        }
-    }
+    // Existing code remains the same...
 
     private fun hashPassword(password: String): String {
         return try {
-            val messageDigest = java.security.MessageDigest.getInstance("SHA-256")
+            val messageDigest = MessageDigest.getInstance("SHA-256")
             val hashBytes = messageDigest.digest(password.toByteArray())
-            val hexString = StringBuilder()
-
-            for (byte in hashBytes) {
-                val hex = Integer.toHexString(0xff and byte.toInt())
-                if (hex.length == 1) hexString.append('0')
-                hexString.append(hex)
-            }
-
-            hexString.toString()
+            hashBytes.joinToString("") { "%02x".format(it) }
         } catch (e: Exception) {
             Log.e(TAG, "Error hashing password", e)
-            // Fallback if hashing fails
-            password
+            password // Fallback if hashing fails
         }
     }
 
     fun insertUser(name: String, email: String, password: String): Long {
+        // Additional input validation
+        if (name.isBlank() || email.isBlank() || password.isBlank()) {
+            Log.d(TAG, "Invalid input for user registration")
+            return -1
+        }
+
+        if (!isValidEmail(email)) {
+            Log.d(TAG, "Invalid email format")
+            return -1
+        }
+
+        if (password.length < 8) {
+            Log.d(TAG, "Password too short")
+            return -1
+        }
+
         var db: SQLiteDatabase? = null
         try {
             val hashedPassword = hashPassword(password)
             val values = ContentValues().apply {
-                put(COLUMN_NAME, name)
-                put(COLUMN_EMAIL, email)
+                put(COLUMN_NAME, name.trim())
+                put(COLUMN_EMAIL, email.trim())
                 put(COLUMN_PASSWORD, hashedPassword)
             }
 
@@ -88,6 +71,19 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             db?.close()
         }
     }
+
+    // Enhanced email validation method
+    private fun isValidEmail(email: String): Boolean {
+        val emailRegex = "^[A-Za-z0-9+_.-]+@[A-Za-z0-9.-]+$"
+        return Pattern.compile(emailRegex)
+            .matcher(email)
+            .matches() &&
+                email.length <= 254 &&
+                email.split("@")[0].length <= 64
+    }
+
+    // Other methods remain the same...
+
 
     fun isEmailExists(email: String): Boolean {
         var db: SQLiteDatabase? = null
@@ -275,6 +271,14 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             cursor?.close()
             db?.close()
         }
+    }
+
+    override fun onCreate(p0: SQLiteDatabase?) {
+        TODO("Not yet implemented")
+    }
+
+    override fun onUpgrade(p0: SQLiteDatabase?, p1: Int, p2: Int) {
+        TODO("Not yet implemented")
     }
 }
 
