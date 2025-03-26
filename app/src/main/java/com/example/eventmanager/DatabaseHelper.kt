@@ -21,7 +21,29 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
         private const val COLUMN_PASSWORD = "password"
     }
 
-    // Existing code remains the same...
+    override fun onCreate(db: SQLiteDatabase?) {
+        val createTableQuery = """
+            CREATE TABLE $TABLE_NAME (
+                $COLUMN_ID INTEGER PRIMARY KEY AUTOINCREMENT,
+                $COLUMN_NAME TEXT NOT NULL,
+                $COLUMN_EMAIL TEXT UNIQUE NOT NULL,
+                $COLUMN_PASSWORD TEXT NOT NULL
+            )
+        """.trimIndent()
+
+        db?.execSQL(createTableQuery)
+        Log.d(TAG, "Database table created successfully")
+    }
+
+    override fun onUpgrade(db: SQLiteDatabase?, oldVersion: Int, newVersion: Int) {
+        // Drop old table if exists
+        db?.execSQL("DROP TABLE IF EXISTS $TABLE_NAME")
+
+        // Recreate the table
+        onCreate(db)
+
+        Log.d(TAG, "Database upgraded from $oldVersion to $newVersion")
+    }
 
     private fun hashPassword(password: String): String {
         return try {
@@ -81,9 +103,6 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
                 email.length <= 254 &&
                 email.split("@")[0].length <= 64
     }
-
-    // Other methods remain the same...
-
 
     fun isEmailExists(email: String): Boolean {
         var db: SQLiteDatabase? = null
@@ -152,8 +171,6 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             db?.close()
         }
     }
-
-    // Add these methods to your existing DatabaseHelper.kt class
 
     fun getUserByEmail(email: String): Pair<String, String>? {
         var db: SQLiteDatabase? = null
@@ -272,73 +289,4 @@ class DatabaseHelper(context: Context) : SQLiteOpenHelper(context, DATABASE_NAME
             db?.close()
         }
     }
-
-    override fun onCreate(p0: SQLiteDatabase?) {
-        TODO("Not yet implemented")
-    }
-
-    override fun onUpgrade(p0: SQLiteDatabase?, p1: Int, p2: Int) {
-        TODO("Not yet implemented")
-    }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
